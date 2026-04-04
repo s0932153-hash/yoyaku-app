@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>予約管理システム</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;600&family=Shippori+Mincho:wght@400;600&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1208;
+    --paper: #f5f0e8;
+    --gold: #c9a84c;
+    --gold-light: #e8d5a3;
+    --gold-dark: #8b6914;
+    --rust: #8b3a2a;
+    --sage: #5a6b4e;
+    --cream: #faf6ee;
+    --shadow: rgba(26,18,8,0.15);
+    --border: rgba(201,168,76,0.3);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Serif JP', serif;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(201,168,76,0.07) 39px, rgba(201,168,76,0.07) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(201,168,76,0.07) 39px, rgba(201,168,76,0.07) 40px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .noise {
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.5;
+  }
+
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 20px 80px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+    margin-bottom: 50px;
+    padding-bottom: 30px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+
+  header::after {
+    content: '✦';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--paper);
+    color: var(--gold);
+    padding: 0 12px;
+    font-size: 14px;
+  }
+
+  .header-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    color: var(--gold-dark);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  h1 {
+    font-family: 'Shippori Mincho', serif;
+    font-size: clamp(22px, 4vw, 34px);
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    color: var(--ink);
+    line-height: 1.4;
+  }
+
+  .header-sub {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--gold-dark);
+    letter-spacing: 0.2em;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 36px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    background: var(--cream);
+  }
+
+  .tab {
+    flex: 1;
+    padding: 14px 10px;
+    border: none;
+    background: transparent;
+    font-family: 'Noto Serif JP', serif;
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    color: var(--ink);
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    opacity: 0.5;
+  }
+
+  .tab.active {
+    background: var(--ink);
+    color: var(--gold-light);
+    opacity: 1;
+  }
+
+  .tab:not(.active):hover { opacity: 0.8; background: rgba(201,168,76,0.08); }
+
+  /* Card */
+  .card {
+    background: var(--cream);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 32px;
+    margin-bottom: 24px;
+    position: relative;
+    box-shadow: 0 2px 20px var(--shadow);
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--gold-dark), var(--gold), var(--gold-dark));
+  }
+
+  .section-title {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 15px;
+    letter-spacing: 0.2em;
+    color: var(--gold-dark);
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* Form */
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .form-group.full { grid-column: 1 / -1; }
+
+  label {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--gold-dark);
+    font-family: 'DM Mono', monospace;
+    text-transform: uppercase;
+  }
+
+  input, select, textarea {
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: 1px;
+    padding: 10px 14px;
+    font-family: 'Noto Serif JP', serif;
+    font-size: 14px;
+    color: var(--ink);
+    width: 100%;
+    transition: border-color 0.2s;
+    outline: none;
+    appearance: none;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 2px rgba(201,168,76,0.1);
+  }
+
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23c9a84c' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+  }
+
+  /* Point preview */
+  .point-preview {
+    background: linear-gradient(135deg, var(--ink), #2d1f0a);
+    border: 1px solid var(--gold-dark);
+    border-radius: 2px;
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 6px;
+  }
+
+  .point-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    color: var(--gold-light);
+    text-transform: uppercase;
+  }
+
+  .point-value {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 28px;
+    color: var(--gold);
+    font-weight: 600;
+  }
+
+  .point-unit {
+    font-size: 13px;
+    color: var(--gold-light);
+    margin-left: 4px;
+  }
+
+  /* Submit Button */
+  .btn {
+    padding: 13px 28px;
+    border: none;
+    border-radius: 1px;
+    cursor: pointer;
+    font-family: 'Noto Serif JP', serif;
+    font-size: 14px;
+    letter-spacing: 0.15em;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: var(--ink);
+    color: var(--gold-light);
+    border: 1px solid var(--gold-dark);
+    width: 100%;
+    margin-top: 8px;
+  }
+
+  .btn-primary:hover {
+    background: var(--gold-dark);
+    color: var(--cream);
+  }
+
+  .btn-sm {
+    padding: 6px 14px;
+    font-size: 12px;
+  }
+
+  .btn-edit {
+    background: transparent;
+    border: 1px solid var(--sage);
+    color: var(--sage);
+  }
+
+  .btn-edit:hover { background: var(--sage); color: var(--cream); }
+
+  .btn-del {
+    background: transparent;
+    border: 1px solid var(--rust);
+    color: var(--rust);
+  }
+
+  .btn-del:hover { background: var(--rust); color: var(--cream); }
+
+  .btn-cancel {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--ink);
+    margin-top: 8px;
+  }
+
+  .btn-cancel:hover { background: rgba(0,0,0,0.05); }
+
+  /* Month filter */
+  .month-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .month-selector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .month-nav {
+    width: 32px; height: 32px;
+    border: 1px solid var(--border);
+    background: var(--cream);
+    border-radius: 1px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    color: var(--gold-dark);
+    transition: all 0.2s;
+  }
+
+  .month-nav:hover { background: var(--ink); color: var(--gold); }
+
+  .month-display {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 18px;
+    letter-spacing: 0.15em;
+    color: var(--ink);
+    min-width: 110px;
+    text-align: center;
+  }
+
+  /* Summary */
+  .summary-bar {
+    background: linear-gradient(135deg, var(--ink), #2d1f0a);
+    border: 1px solid var(--gold-dark);
+    padding: 18px 24px;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .summary-info { display: flex; gap: 32px; align-items: center; flex-wrap: wrap; }
+
+  .summary-item { text-align: center; }
+
+  .summary-num {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 26px;
+    color: var(--gold);
+    line-height: 1;
+  }
+
+  .summary-lbl {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--gold-light);
+    text-transform: uppercase;
+    margin-top: 3px;
+  }
+
+  /* Reservation list */
+  .reservation-list { display: flex; flex-direction: column; gap: 12px; }
+
+  .reservation-item {
+    background: var(--cream);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 18px 20px;
+    display: grid;
+    grid-template-columns: 80px 1fr auto;
+    gap: 16px;
+    align-items: center;
+    transition: box-shadow 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .reservation-item::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--gold);
+  }
+
+  .reservation-item:hover {
+    box-shadow: 0 4px 16px var(--shadow);
+  }
+
+  .res-date {
+    text-align: center;
+    border-right: 1px solid var(--border);
+    padding-right: 16px;
+  }
+
+  .res-day {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1;
+  }
+
+  .res-weekday {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--gold-dark);
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  .res-body { flex: 1; }
+
+  .res-name {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+
+  .res-meta {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    border-radius: 1px;
+  }
+
+  .tag-course { background: rgba(90,107,78,0.12); color: var(--sage); border: 1px solid rgba(90,107,78,0.25); }
+  .tag-amount { background: rgba(201,168,76,0.1); color: var(--gold-dark); border: 1px solid var(--border); }
+  .tag-type { background: rgba(139,58,42,0.1); color: var(--rust); border: 1px solid rgba(139,58,42,0.2); }
+
+  .res-actions { display: flex; gap: 8px; flex-direction: column; }
+
+  .res-point {
+    text-align: right;
+    margin-bottom: 8px;
+  }
+
+  .res-point-num {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 22px;
+    color: var(--gold-dark);
+    font-weight: 600;
+  }
+
+  .res-point-lbl {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: var(--gold-dark);
+    text-transform: uppercase;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: rgba(26,18,8,0.3);
+  }
+
+  .empty-icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-text { font-size: 14px; letter-spacing: 0.1em; }
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(26,18,8,0.7);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--cream);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 32px;
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+  }
+
+  .modal::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--gold-dark), var(--gold), var(--gold-dark));
+  }
+
+  .modal-title {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 17px;
+    letter-spacing: 0.2em;
+    margin-bottom: 24px;
+    color: var(--gold-dark);
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--ink);
+    color: var(--gold-light);
+    padding: 12px 24px;
+    border-radius: 2px;
+    border: 1px solid var(--gold-dark);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.15em;
+    z-index: 200;
+    transition: transform 0.3s ease;
+    white-space: nowrap;
+  }
+
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 600px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .reservation-item { grid-template-columns: 60px 1fr; }
+    .res-actions { flex-direction: row; }
+    .res-point { grid-column: 1 / -1; text-align: left; }
+    .summary-info { gap: 16px; }
+    .card { padding: 20px; }
+  }
+</style>
+</head>
+<body>
+<div class="noise"></div>
+
+<div class="container">
+  <header>
+    <div class="header-label">Reservation Management</div>
+    <h1>予約管理システム</h1>
+    <div class="header-sub">◆ ポイント自動計算 ◆</div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('register')">✦ 予約登録</button>
+    <button class="tab" onclick="showTab('list')">✦ 予約一覧</button>
+  </div>
+
+  <!-- Register Tab -->
+  <div id="tab-register">
+    <div class="card">
+      <div class="section-title">新規予約登録</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>日付</label>
+          <input type="date" id="reg-date">
+        </div>
+        <div class="form-group">
+          <label>お客様名</label>
+          <input type="text" id="reg-name" placeholder="例：山田 花子">
+        </div>
+        <div class="form-group">
+          <label>金額</label>
+          <input type="number" id="reg-amount" placeholder="例：15000" min="0">
+        </div>
+        <div class="form-group">
+          <label>コース種別</label>
+          <select id="reg-type" onchange="updatePreview()">
+            <option value="normal">通常コース</option>
+            <option value="stay">お泊まりコース</option>
+            <option value="travel">トラベルコース</option>
+            <option value="couple">カップルコース</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <label>施術コース名 / 時間</label>
+          <select id="reg-course" onchange="updatePreview()">
+            <option value="90">90分コース</option>
+            <option value="120">120分コース</option>
+            <option value="150">150分コース</option>
+            <option value="180">180分（3h）コース</option>
+            <option value="240">240分（4h）コース</option>
+            <option value="300">300分（5h）コース</option>
+            <option value="360">360分（6h）コース</option>
+            <option value="custom">その他（分を入力）</option>
+          </select>
+        </div>
+        <div class="form-group full" id="custom-minutes-group" style="display:none">
+          <label>時間（分）</label>
+          <input type="number" id="reg-custom-min" placeholder="例：100" min="1" onchange="updatePreview()">
+        </div>
+        <div class="form-group full">
+          <label>メモ</label>
+          <input type="text" id="reg-memo" placeholder="備考など（任意）">
+        </div>
+      </div>
+
+      <div style="margin-top:20px">
+        <div class="point-preview">
+          <div>
+            <div class="point-label">計算ポイント</div>
+            <div id="preview-detail" style="font-size:11px;color:rgba(232,213,163,0.6);margin-top:4px;font-family:'DM Mono',monospace;letter-spacing:0.05em"></div>
+          </div>
+          <div style="text-align:right">
+            <span class="point-value" id="preview-point">—</span>
+            <span class="point-unit">pt</span>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="registerReservation()">予約を登録する</button>
+    </div>
+  </div>
+
+  <!-- List Tab -->
+  <div id="tab-list" style="display:none">
+    <div class="month-bar">
+      <div class="month-selector">
+        <button class="month-nav" onclick="changeMonth(-1)">◀</button>
+        <div class="month-display" id="month-display"></div>
+        <button class="month-nav" onclick="changeMonth(1)">▶</button>
+      </div>
+    </div>
+
+    <div class="summary-bar">
+      <div class="summary-info">
+        <div class="summary-item">
+          <div class="summary-num" id="sum-count">0</div>
+          <div class="summary-lbl">予約件数</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-num" id="sum-points">0</div>
+          <div class="summary-lbl">合計ポイント</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-num" id="sum-amount">¥0</div>
+          <div class="summary-lbl">合計金額</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="reservation-list" class="reservation-list"></div>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <div class="modal-title">予約を編集</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>日付</label>
+        <input type="date" id="edit-date">
+      </div>
+      <div class="form-group">
+        <label>お客様名</label>
+        <input type="text" id="edit-name">
+      </div>
+      <div class="form-group">
+        <label>金額</label>
+        <input type="number" id="edit-amount" min="0">
+      </div>
+      <div class="form-group">
+        <label>コース種別</label>
+        <select id="edit-type" onchange="updateEditPreview()">
+          <option value="normal">通常コース</option>
+          <option value="stay">お泊まりコース</option>
+          <option value="travel">トラベルコース</option>
+          <option value="couple">カップルコース</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>施術コース名 / 時間</label>
+        <select id="edit-course" onchange="updateEditPreview()">
+          <option value="90">90分コース</option>
+          <option value="120">120分コース</option>
+          <option value="150">150分コース</option>
+          <option value="180">180分（3h）コース</option>
+          <option value="240">240分（4h）コース</option>
+          <option value="300">300分（5h）コース</option>
+          <option value="360">360分（6h）コース</option>
+          <option value="custom">その他（分を入力）</option>
+        </select>
+      </div>
+      <div class="form-group full" id="edit-custom-group" style="display:none">
+        <label>時間（分）</label>
+        <input type="number" id="edit-custom-min" min="1" onchange="updateEditPreview()">
+      </div>
+      <div class="form-group full">
+        <label>メモ</label>
+        <input type="text" id="edit-memo">
+      </div>
+    </div>
+    <div class="point-preview" style="margin-top:18px">
+      <div>
+        <div class="point-label">計算ポイント</div>
+        <div id="edit-preview-detail" style="font-size:11px;color:rgba(232,213,163,0.6);margin-top:4px;font-family:'DM Mono',monospace"></div>
+      </div>
+      <div style="text-align:right">
+        <span class="point-value" id="edit-preview-point">—</span>
+        <span class="point-unit">pt</span>
+      </div>
+    </div>
+    <button class="btn btn-primary" style="margin-top:16px" onclick="saveEdit()">保存する</button>
+    <button class="btn btn-cancel" style="width:100%" onclick="closeModal()">キャンセル</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const WEEKDAYS = ['日','月','火','水','木','金','土'];
+
+  let reservations = JSON.parse(localStorage.getItem('reservations') || '[]');
+  let currentMonth = new Date();
+  currentMonth.setDate(1);
+  let editingId = null;
+
+  // ── Point calculation ──────────────────────────────────────────────
+  function calcPoints(minutes, type) {
+    let base;
+    if (minutes <= 0) return { pts: 0, detail: '—' };
+
+    if (type === 'stay') {
+      const half = minutes / 2;
+      base = Math.ceil(half / 90);
+      const detail = `${minutes}分 ÷ 2 = ${half}分 → ${Math.ceil(half/90)}pt（切り上げ）`;
+      return { pts: base, detail };
+    }
+    if (type === 'travel') {
+      const half = minutes / 2;
+      base = Math.floor(half / 90);
+      if (half >= 150) base = Math.floor(half / 90) + (half >= 150 ? 1 : 0);
+      // re-calc properly
+      base = calcBasePoints(Math.floor(half));
+      const detail = `${minutes}分 ÷ 2 = ${Math.floor(half)}分 → ${base}pt`;
+      return { pts: base, detail };
+    }
+    if (type === 'couple') {
+      const doubled = minutes * 2;
+      base = calcBasePoints(doubled);
+      const detail = `${minutes}分 × 2 = ${doubled}分 → ${base}pt`;
+      return { pts: base, detail };
+    }
+    // normal
+    base = calcBasePoints(minutes);
+    return { pts: base, detail: `${minutes}分 → ${base}pt` };
+  }
+
+  function calcBasePoints(minutes) {
+    if (minutes < 90) return 0;
+    if (minutes < 150) return 1; // 90 or 120
+    if (minutes < 180) return 2; // 150
+    // 180+: per 90min = 1pt, but floor groups of 90
+    return Math.floor(minutes / 90);
+  }
+
+  // ── Register ───────────────────────────────────────────────────────
+  document.getElementById('reg-course').addEventListener('change', function() {
+    document.getElementById('custom-minutes-group').style.display =
+      this.value === 'custom' ? 'flex' : 'none';
+    updatePreview();
+  });
+
+  function getMinutes(courseId, customId) {
+    const v = document.getElementById(courseId).value;
+    if (v === 'custom') {
+      return parseInt(document.getElementById(customId).value) || 0;
+    }
+    return parseInt(v);
+  }
+
+  function updatePreview() {
+    const mins = getMinutes('reg-course', 'reg-custom-min');
+    const type = document.getElementById('reg-type').value;
+    const { pts, detail } = calcPoints(mins, type);
+    document.getElementById('preview-point').textContent = pts;
+    document.getElementById('preview-detail').textContent = detail;
+  }
+
+  function updateEditPreview() {
+    document.getElementById('edit-custom-group').style.display =
+      document.getElementById('edit-course').value === 'custom' ? 'flex' : 'none';
+    const mins = getMinutes('edit-course', 'edit-custom-min');
+    const type = document.getElementById('edit-type').value;
+    const { pts, detail } = calcPoints(mins, type);
+    document.getElementById('edit-preview-point').textContent = pts;
+    document.getElementById('edit-preview-detail').textContent = detail;
+  }
+
+  function getCourseLabel(mins, courseVal) {
+    const map = { '90':'90分','120':'120分','150':'150分','180':'3h（180分）','240':'4h（240分）','300':'5h（300分）','360':'6h（360分）' };
+    return map[courseVal] || `${mins}分`;
+  }
+
+  function getTypeLabel(t) {
+    return { normal:'通常', stay:'お泊まり', travel:'トラベル', couple:'カップル' }[t] || t;
+  }
+
+  function registerReservation() {
+    const date = document.getElementById('reg-date').value;
+    const name = document.getElementById('reg-name').value.trim();
+    const amount = parseInt(document.getElementById('reg-amount').value) || 0;
+    const type = document.getElementById('reg-type').value;
+    const courseVal = document.getElementById('reg-course').value;
+    const mins = getMinutes('reg-course', 'reg-custom-min');
+    const memo = document.getElementById('reg-memo').value.trim();
+
+    if (!date || !name) { showToast('日付とお客様名を入力してください'); return; }
+    if (!mins) { showToast('コース時間を確認してください'); return; }
+
+    const { pts } = calcPoints(mins, type);
+    const id = Date.now().toString();
+
+    reservations.push({ id, date, name, amount, type, courseVal, mins, memo, points: pts });
+    save();
+    showToast('予約を登録しました ✦');
+    // reset
+    document.getElementById('reg-date').value = '';
+    document.getElementById('reg-name').value = '';
+    document.getElementById('reg-amount').value = '';
+    document.getElementById('reg-memo').value = '';
+    document.getElementById('reg-course').value = '90';
+    document.getElementById('reg-type').value = 'normal';
+    document.getElementById('custom-minutes-group').style.display = 'none';
+    updatePreview();
+  }
+
+  // ── List ───────────────────────────────────────────────────────────
+  function showTab(tab) {
+    document.getElementById('tab-register').style.display = tab === 'register' ? 'block' : 'none';
+    document.getElementById('tab-list').style.display = tab === 'list' ? 'block' : 'none';
+    document.querySelectorAll('.tab').forEach((t, i) => {
+      t.classList.toggle('active', (i === 0 && tab === 'register') || (i === 1 && tab === 'list'));
+    });
+    if (tab === 'list') renderList();
+  }
+
+  function changeMonth(delta) {
+    currentMonth.setMonth(currentMonth.getMonth() + delta);
+    renderList();
+  }
+
+  function renderList() {
+    const y = currentMonth.getFullYear();
+    const m = currentMonth.getMonth();
+    document.getElementById('month-display').textContent = `${y}年 ${m+1}月`;
+
+    const filtered = reservations.filter(r => {
+      const d = new Date(r.date);
+      return d.getFullYear() === y && d.getMonth() === m;
+    }).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    const totalPoints = filtered.reduce((s, r) => s + (r.points || 0), 0);
+    const totalAmount = filtered.reduce((s, r) => s + (r.amount || 0), 0);
+    document.getElementById('sum-count').textContent = filtered.length;
+    document.getElementById('sum-points').textContent = totalPoints;
+    document.getElementById('sum-amount').textContent = '¥' + totalAmount.toLocaleString();
+
+    const el = document.getElementById('reservation-list');
+    if (!filtered.length) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">この月の予約はありません</div></div>`;
+      return;
+    }
+
+    el.innerHTML = filtered.map(r => {
+      const d = new Date(r.date + 'T00:00:00');
+      const day = d.getDate();
+      const wd = WEEKDAYS[d.getDay()];
+      return `
+        <div class="reservation-item">
+          <div class="res-date">
+            <div class="res-day">${day}</div>
+            <div class="res-weekday">${wd}曜</div>
+          </div>
+          <div class="res-body">
+            <div class="res-name">${r.name} 様</div>
+            <div class="res-meta">
+              <span class="tag tag-course">${getCourseLabel(r.mins, r.courseVal)}</span>
+              <span class="tag tag-type">${getTypeLabel(r.type)}</span>
+              <span class="tag tag-amount">¥${(r.amount||0).toLocaleString()}</span>
+              ${r.memo ? `<span class="tag" style="background:rgba(26,18,8,0.05);border:1px solid var(--border);color:var(--ink);font-size:10px">${r.memo}</span>` : ''}
+            </div>
+          </div>
+          <div class="res-actions">
+            <div class="res-point">
+              <div class="res-point-num">${r.points}</div>
+              <div class="res-point-lbl">pt</div>
+            </div>
+            <button class="btn btn-sm btn-edit" onclick="openEdit('${r.id}')">編集</button>
+            <button class="btn btn-sm btn-del" onclick="deleteRes('${r.id}')">削除</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // ── Edit ───────────────────────────────────────────────────────────
+  function openEdit(id) {
+    const r = reservations.find(x => x.id === id);
+    if (!r) return;
+    editingId = id;
+    document.getElementById('edit-date').value = r.date;
+    document.getElementById('edit-name').value = r.name;
+    document.getElementById('edit-amount').value = r.amount || '';
+    document.getElementById('edit-type').value = r.type;
+    document.getElementById('edit-memo').value = r.memo || '';
+
+    const courseEl = document.getElementById('edit-course');
+    if (['90','120','150','180','240','300','360'].includes(r.courseVal)) {
+      courseEl.value = r.courseVal;
+      document.getElementById('edit-custom-group').style.display = 'none';
+    } else {
+      courseEl.value = 'custom';
+      document.getElementById('edit-custom-min').value = r.mins;
+      document.getElementById('edit-custom-group').style.display = 'flex';
+    }
+
+    updateEditPreview();
+    document.getElementById('edit-modal').classList.add('open');
+  }
+
+  function saveEdit() {
+    const r = reservations.find(x => x.id === editingId);
+    if (!r) return;
+    const mins = getMinutes('edit-course', 'edit-custom-min');
+    const type = document.getElementById('edit-type').value;
+    const { pts } = calcPoints(mins, type);
+    r.date = document.getElementById('edit-date').value;
+    r.name = document.getElementById('edit-name').value.trim();
+    r.amount = parseInt(document.getElementById('edit-amount').value) || 0;
+    r.type = type;
+    r.courseVal = document.getElementById('edit-course').value;
+    r.mins = mins;
+    r.memo = document.getElementById('edit-memo').value.trim();
+    r.points = pts;
+    save();
+    closeModal();
+    renderList();
+    showToast('予約を更新しました ✦');
+  }
+
+  function closeModal() {
+    document.getElementById('edit-modal').classList.remove('open');
+    editingId = null;
+  }
+
+  function deleteRes(id) {
+    if (!confirm('この予約を削除しますか？')) return;
+    reservations = reservations.filter(r => r.id !== id);
+    save();
+    renderList();
+    showToast('予約を削除しました');
+  }
+
+  function save() {
+    localStorage.setItem('reservations', JSON.stringify(reservations));
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  // Init
+  updatePreview();
+  const today = new Date();
+  document.getElementById('reg-date').value = today.toISOString().split('T')[0];
+  renderList();
+</script>
+</body>
+</html>
