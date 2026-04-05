@@ -788,10 +788,9 @@
 
   function calcBasePoints(minutes) {
     if (minutes < 90) return 0;
-    if (minutes < 150) return 1; // 90 or 120
-    if (minutes < 180) return 2; // 150
-    // 180+: per 90min = 1pt, but floor groups of 90
-    return Math.floor(minutes / 90);
+    if (minutes < 150) return 1; // 90・120分 → 1pt
+    if (minutes < 180) return 2; // 150分 → 2pt
+    return Math.round(minutes / 60); // 180分=3pt, 240分=4pt, 300分=5pt, 360分=6pt
   }
 
   // ── Register ───────────────────────────────────────────────────────
