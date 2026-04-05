@@ -776,10 +776,10 @@
       return { pts: base, detail };
     }
     if (type === 'couple') {
-      const doubled = minutes * 2;
-      base = calcBasePoints(doubled);
-      const detail = `${minutes}分 × 2 = ${doubled}分 → ${base}pt`;
-      return { pts: base, detail };
+      const basePts = calcBasePoints(minutes);
+      const pts = basePts * 2;
+      const detail = `通常${basePts}pt × 2 = ${pts}pt`;
+      return { pts, detail };
     }
     // normal
     base = calcBasePoints(minutes);
