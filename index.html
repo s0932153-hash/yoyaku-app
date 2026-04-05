@@ -560,6 +560,48 @@
 
   .toast.show { transform: translateX(-50%) translateY(0); }
 
+  .copy-area {
+    background: var(--cream);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    position: relative;
+  }
+  .copy-area::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, var(--gold-dark), var(--gold), var(--gold-dark));
+  }
+  .copy-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; letter-spacing: 0.2em;
+    color: var(--gold-dark); text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .copy-text {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px; line-height: 2;
+    color: var(--ink);
+    white-space: pre-wrap;
+    word-break: break-all;
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: 1px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    min-height: 60px;
+  }
+  .btn-copy {
+    background: var(--ink); color: var(--gold-light);
+    border: 1px solid var(--gold-dark);
+    padding: 10px 24px; font-size: 13px;
+    letter-spacing: 0.15em; cursor: pointer;
+    border-radius: 1px; font-family: 'Noto Serif JP', serif;
+    transition: all 0.2s;
+  }
+  .btn-copy:hover { background: var(--gold-dark); color: var(--cream); }
+
   @media (max-width: 600px) {
     .form-grid { grid-template-columns: 1fr; }
     .reservation-item { grid-template-columns: 60px 1fr; }
@@ -678,6 +720,12 @@
       </div>
     </div>
 
+    <div class="copy-area">
+      <div class="copy-title">✦ コピー用テキスト</div>
+      <div class="copy-text" id="copy-text">—</div>
+      <button class="btn-copy" onclick="copyText()">クリップボードにコピー</button>
+    </div>
+
     <div id="reservation-list" class="reservation-list"></div>
   </div>
 </div>
@@ -756,41 +804,38 @@
   let editingId = null;
 
   // ── Point calculation ──────────────────────────────────────────────
-  function calcPoints(minutes, type) {
-    let base;
-    if (minutes <= 0) return { pts: 0, detail: '—' };
-
-    if (type === 'stay') {
-      const half = minutes / 2;
-      base = Math.ceil(half / 90);
-      const detail = `${minutes}分 ÷ 2 = ${half}分 → ${Math.ceil(half/90)}pt（切り上げ）`;
-      return { pts: base, detail };
-    }
-    if (type === 'travel') {
-      const half = minutes / 2;
-      base = Math.floor(half / 90);
-      if (half >= 150) base = Math.floor(half / 90) + (half >= 150 ? 1 : 0);
-      // re-calc properly
-      base = calcBasePoints(Math.floor(half));
-      const detail = `${minutes}分 ÷ 2 = ${Math.floor(half)}分 → ${base}pt`;
-      return { pts: base, detail };
-    }
-    if (type === 'couple') {
-      const basePts = calcBasePoints(minutes);
-      const pts = basePts * 2;
-      const detail = `通常${basePts}pt × 2 = ${pts}pt`;
-      return { pts, detail };
-    }
-    // normal
-    base = calcBasePoints(minutes);
-    return { pts: base, detail: `${minutes}分 → ${base}pt` };
+  function calcBasePoints(minutes) {
+    if (minutes < 90)   return 0;
+    if (minutes < 150)  return 1;  // 90・120分
+    if (minutes < 180)  return 2;  // 150分
+    if (minutes < 270)  return 3;  // 3h・4h（180〜269分）
+    if (minutes < 330)  return 4;  // 5h（270〜329分）
+    if (minutes < 390)  return 4;  // 6h（330〜389分）
+    if (minutes < 510)  return 6;  // 7h・8h（390〜509分）
+    if (minutes < 630)  return 8;  // 9h・10h（510〜629分）
+    if (minutes < 750)  return 10; // 11h・12h（630〜749分）
+    if (minutes < 870)  return 12; // 13h・14h（750〜869分）
+    return 12;
   }
 
-  function calcBasePoints(minutes) {
-    if (minutes < 90) return 0;
-    if (minutes < 150) return 1; // 90・120分 → 1pt
-    if (minutes < 180) return 2; // 150分 → 2pt
-    return Math.round(minutes / 60); // 180分=3pt, 240分=4pt, 300分=5pt, 360分=6pt
+  function calcPoints(minutes, type) {
+    if (minutes <= 0) return { pts: 0, detail: '—' };
+
+    if (type === 'couple') {
+      return { pts: 6, detail: '3時間コース固定 → 6pt' };
+    }
+    if (type === 'stay') {
+      const half = Math.ceil(minutes / 2);
+      const pts = calcBasePoints(half);
+      return { pts, detail: `${minutes}分 ÷ 2 = ${half}分（切り上げ） → ${pts}pt` };
+    }
+    if (type === 'travel') {
+      const half = Math.floor(minutes / 2);
+      const pts = calcBasePoints(half);
+      return { pts, detail: `${minutes}分 ÷ 2 = ${half}分（切り捨て） → ${pts}pt` };
+    }
+    const pts = calcBasePoints(minutes);
+    return { pts, detail: `${minutes}分 → ${pts}pt` };
   }
 
   // ── Register ───────────────────────────────────────────────────────
@@ -894,6 +939,24 @@
     document.getElementById('sum-count').textContent = filtered.length;
     document.getElementById('sum-points').textContent = totalPoints;
     document.getElementById('sum-amount').textContent = '¥' + totalAmount.toLocaleString();
+
+    // コピー用テキスト生成
+    const copyEl = document.getElementById('copy-text');
+    if (!filtered.length) {
+      copyEl.textContent = '—';
+    } else {
+      const lines = filtered.map(r => {
+        const d = new Date(r.date + 'T00:00:00');
+        const mo = String(d.getMonth()+1).padStart(2,'0');
+        const da = String(d.getDate()).padStart(2,'0');
+        const typePrefix = r.type === 'stay' ? 'お泊り' : r.type === 'travel' ? 'トラベル' : r.type === 'couple' ? 'カップル' : '';
+        const courseStr = typePrefix + getCourseLabel(r.mins, r.courseVal);
+        return `${mo}/${da} ${r.name}様   ${courseStr}   ${r.points}ポイント`;
+      });
+      const total = filtered.reduce((s,r)=>s+(r.points||0),0);
+      lines.push(`合計${total}ポイント`);
+      copyEl.textContent = lines.join('\n');
+    }
 
     const el = document.getElementById('reservation-list');
     if (!filtered.length) {
@@ -1000,6 +1063,15 @@
     t.textContent = msg;
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  function copyText() {
+    const text = document.getElementById('copy-text').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('コピーしました ✦');
+    }).catch(() => {
+      showToast('コピーに失敗しました');
+    });
   }
 
   // Init
